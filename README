@@ -1,11 +1,17 @@
 CakePHP Dropbox Component v0.3
 
 = ABOUT =========
+A CakePHP component that connects to the most excellent file syncing tool known as Dropbox (http://www.dropbox.com).
+This component will...
+* List the files/folders of a dropbox folder using the files function.
+* Get a dropbox file using the file function.
+* Upload a file to a dropbox folder using the upload function.
+* Downloads a file from dropbox using the download function.
+* Compares files of a local folder and a dropbox folder then uploads/downloads the diffence using the sync function.
 
 = INSTALL =======
-Copy to your CakePHP components folder.
-
-= USAGE =========
+* Upload/Copy dropbox.php to your CakePHP app/controllers/components/ folder.
+* Add the component to your CakePHP controller.
 
 = SETTINGS ======
 * EMAIL
@@ -19,7 +25,10 @@ Copy to your CakePHP components folder.
 
 = MORE INFO =====
 Please visit http://www.kyletyoung.com/code/cakephp_dropbox_component for 
-further information.
+further information and examples.
 
 = AUTHOR ========
 Kyle Robinson Young <kyle at kyletyoung.com>
+
+= LICENSE =======
+http://www.opensource.org/licenses/mit-license.php The MIT License
