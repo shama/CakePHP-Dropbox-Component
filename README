@@ -1,0 +1,25 @@
+CakePHP Dropbox Component v0.3
+
+= ABOUT =========
+
+= INSTALL =======
+Copy to your CakePHP components folder.
+
+= USAGE =========
+
+= SETTINGS ======
+* EMAIL
+  Your Dropbox account email.
+
+* PASSWORD
+  Your Dropbox account password.
+
+* CACHE
+  Set to false to disable caching or set to desired cache config name.
+
+= MORE INFO =====
+Please visit http://www.kyletyoung.com/code/cakephp_dropbox_component for 
+further information.
+
+= AUTHOR ========
+Kyle Robinson Young <kyle at kyletyoung.com>
