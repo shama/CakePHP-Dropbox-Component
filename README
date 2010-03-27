@@ -1,4 +1,4 @@
-CakePHP Dropbox Component v0.3
+CakePHP Dropbox Component v0.4
 
 = ABOUT =========
 A CakePHP component that connects to the most excellent file syncing tool known as Dropbox (http://www.dropbox.com).
@@ -12,6 +12,22 @@ This component will...
 = INSTALL =======
 * Upload/Copy dropbox.php to your CakePHP app/controllers/components/ folder.
 * Add the component to your CakePHP controller.
+
+= USAGE =========
+* array files ( str $dropbox_folder )
+  Returns an array of remote files/folders within the given dir param.
+
+* array file ( str $dropbox_file [, str $dropbox_file_id ] )
+  Returns a remote file as an array.
+
+* bool upload ( str $from_file_path , str $to_dropbox_folder )
+  Upload a local file to a remote folder.
+
+* bool download ( str $dropbox_file_path , str $local_file_path [, str $dropbox_file_id ] )
+  Download a remote file to a local folder. Both from and to must be a path to a file name.
+
+* bool sync ( str $local_folder_path , str $dropbox_folder_path )
+  Compares files from the local and remote folders then syncs them. Both local and remote must be folders.
 
 = SETTINGS ======
 * EMAIL

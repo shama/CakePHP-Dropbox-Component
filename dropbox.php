@@ -1,6 +1,6 @@
 <?php
 /**
- * CAKEPHP DROPBOX COMPONENT v0.3
+ * CAKEPHP DROPBOX COMPONENT v0.4
  * Connects Cakephp to Dropbox using cURL.
  * 
  * Copyright (C) 2010 Kyle Robinson Young
@@ -29,7 +29,7 @@
  * @author Kyle Robinson Young <kyle at kyletyoung.com>
  * @copyright 2010 Kyle Robinson Young
  * @license http://www.opensource.org/licenses/mit-license.php The MIT License
- * @version 0.3
+ * @version 0.4
  * @link http://www.kyletyoung.com/code/cakephp_dropbox_component
  * 
  * SETTINGS:
@@ -40,7 +40,6 @@
  * 
  * TODO:
  * Make sync function smarter (use modified).
- * Centralize regex to update if Dropbox changes.
  *
  */
 class DropboxComponent extends Object 
@@ -53,8 +52,8 @@ class DropboxComponent extends Object
     
     /**
      * INITIALIZE
-     * @param $controller
-     * @param $settings
+     * @param class $controller
+     * @param array $settings
      */
     function initialize(&$controller, $settings=array())
     {
@@ -87,14 +86,14 @@ class DropboxComponent extends Object
     {
         if (!file_exists($from)) return false;
         $data = $this->request('https://www.dropbox.com/home');
-        if (!$token = $this->getToken($data, 'https://dl-web.dropbox.com/upload')) return false;
+        $token = $this->findOnDropbox('token_upload', $data);
+        if ($token === false) return false;
         $this->post = array(
         	'plain'    => 'yes',
         	'file'     => '@'.$from,
         	'dest'     => $to,
         	't'        => $token
         );
-        //debug($this->post);
         $data = $this->request('https://dl-web.dropbox.com/upload');
         if (strpos($data, 'HTTP/1.1 302 FOUND') === false) return false;
         return true;
@@ -191,31 +190,28 @@ class DropboxComponent extends Object
             $data = $this->request('https://www.dropbox.com/browse_plain/'.$dir.'?no_js=true');
             
             // GET FILES
-            preg_match_all('/<div.*details-filename.*>(.*?)<\/div>/i', $data, $matches);
-            if (empty($matches[0])) return false;
+            $matches = $this->findOnDropbox('files', $data);
+            if ($matches === false) return false;
             
             // GET TYPES
-            preg_match_all('/<div.*details-icon.*>(<img.*class="sprite s_(.*)".*>)<\/div>/i', $data, $types);
-            if (!empty($types[2])) $types = $types[2];
+            $types = $this->findOnDropbox('file_types', $data);
             
             // GET SIZES
-            preg_match_all('/<div.*details-size.*>(.*)<\/div>/i', $data, $sizes);
-            if (!empty($sizes[1])) $sizes = $sizes[1];
+            $sizes = $this->findOnDropbox('file_sizes', $data);
             
             // GET MODS
-            preg_match_all('/<div.*details-modified.*>(.*)<\/div>/i', $data, $mods);
-            if (!empty($mods[1])) $mods = $mods[1];
+            $mods = $this->findOnDropbox('file_modified_dates', $data);
             
             $i = 0;
-            foreach ($matches[0] as $key => $file)
+            foreach ($matches as $key => $file)
             {
                 // IF PARENT
                 if (strpos($file, "Parent folder") !== false) continue;
                 
                 // GET FILENAME
-                preg_match('/href=[("|\')]([^("|\')]+)/i', $file, $found);
-                if (empty($found[1])) continue;
-                $found = parse_url($found[1]);
+                $found = $this->findOnDropbox('filename', $file);
+                if ($found === false) continue;
+                $found = parse_url($found);
                 $filename = pathinfo($found['path']);
                 $filename = $filename['basename'];
                 if (empty($filename)) continue;
@@ -244,14 +240,14 @@ class DropboxComponent extends Object
                     'modified'	=> $modified
                 );
                 
-                // IF FILE OR FOLDER
-                preg_match('/\?w=(.[^"]*)/i', $file, $match);
-                if (!empty($match[1]))
+                // IF FILE OR FOLDER - FILES HAVE W
+                $w = $this->findOnDropbox('w', $file);
+                if ($w !== false)
                 {
-                    $files[$i]['w'] = $match[1];
+                    $files[$i]['w'] = $w;
                     
                     // SAVE W FOR LATER
-                    $this->_wcache[$dir.'/'.$filename] = $match[1];
+                    $this->_wcache[$dir.'/'.$filename] = $w;
                 } // !empty
                 
                 $i++;
@@ -285,7 +281,7 @@ class DropboxComponent extends Object
                 else return false;
             } // empty w
             $data = $this->request('https://dl-web.dropbox.com/get/'.$file.'?w='.$w);
-            preg_match('/Content-Type: .+\/.+/i', $data, $type);
+            $type = $this->findOnDropbox('content_type', $data);
             $data = substr(stristr($data, "\r\n\r\n"), 4);
             if (!empty($type[0])) $type = $type[0];
             $out = array(
@@ -316,7 +312,8 @@ class DropboxComponent extends Object
             $data = $this->request('https://www.dropbox.com/login');
             
             // GET TOKEN
-            if (!$token = $this->getToken($data, '/login')) return false;
+            $token = $this->findOnDropbox('token_login', $data);
+            if ($token === false) return false;
             
             // LOGIN TO DROPBOX
             $this->post = array(
@@ -375,33 +372,15 @@ class DropboxComponent extends Object
         $data = curl_exec($ch);
         
         // SAVE COOKIES
-        preg_match_all('/Set-Cookie: ([^=]+)=(.*?);/i', $data, $matches, PREG_SET_ORDER);
-        foreach ($matches as $match)
+        $cookies = $this->findOnDropbox('cookies', $data);
+        if ($cookies !== false)
         {
-            $this->cookie[$match[1]] = $match[2];
-        } // foreach
+            $this->cookie = array_merge($this->cookie, $cookies);
+        } // if cookies
         
         curl_close($ch);
         return $data;
     } // request
-
-    /**
-     * GET TOKEN
-     * Returns the 't' input field value of the
-     * requested form.
-     * 
-     * @param str $html
-     * @param str $action
-     * @return bool
-     */
-    function getToken($data=null, $action=null) 
-    {
-        preg_match('/<form [^>]*'.preg_quote($action, '/').'[^>]*>.*?<\/form>/si', $data, $matches);
-        if (empty($matches[0])) return false;
-        preg_match('/<input [^>]*name="t" [^>]*value="(.*?)"[^>]*>/si', $matches[0], $matches);
-        if (empty($matches[1])) return false;
-        return $matches[1];
-    } // getToken
     
     /**
      * ESCAPE
@@ -420,4 +399,95 @@ class DropboxComponent extends Object
         );
     } // escape
 
+    /**
+     * FIND ON DROPBOX
+     * A single function for parsing data from 
+     * Dropbox. For easy update when/if Dropbox 
+     * updates their html.
+     * 
+     * @param str $key
+     * @param str $data
+     * @return mixed
+     */
+    function findOnDropbox($key=null, $data=null)
+    {
+        switch (strtolower($key))
+        {
+            // FIND FILES & NAMES
+            case 'files':
+                preg_match_all('/<div.*details-filename.*>(.*?)<\/div>/i', $data, $matches);
+                if (!empty($matches[0])) return $matches[0];
+                break;
+                
+            // FIND FILE TYPES
+            case 'file_types':
+                preg_match_all('/<div.*details-icon.*>(<img.*class="sprite s_(.*)".*>)<\/div>/i', $data, $matches);
+                if (!empty($matches[2])) return $matches[2];
+                break;
+                
+            // FIND FILE SIZES
+            case 'file_sizes':
+                preg_match_all('/<div.*details-size.*>(.*)<\/div>/i', $data, $matches);
+                if (!empty($matches[1])) return $matches[1];
+                break;
+                
+            // FIND FILE MODIFIED DATES
+            case 'file_modified_dates':
+                preg_match_all('/<div.*details-modified.*>(.*)<\/div>/i', $data, $matches);
+                if (!empty($matches[1])) return $matches[1];
+                break;
+                
+            // FIND FILE NAME
+            case 'filename':
+                preg_match('/href=[("|\')]([^("|\')]+)/i', $data, $match);
+                if (!empty($match[1])) return $match[1];
+                break;
+                
+            // FIND W
+            case 'w':
+                preg_match('/\?w=(.[^"]*)/i', $data, $match);
+                if (!empty($match[1])) return $match[1];
+                break;
+                
+            // FIND CONTENT TYPE
+            case 'content_type':
+                preg_match('/Content-Type: .+\/.+/i', $data, $type);
+                if (!empty($type)) return $type;
+                break;
+                
+            // FIND COOKIES
+            case 'cookies':
+                preg_match_all('/Set-Cookie: ([^=]+)=(.*?);/i', $data, $matches);
+                $return = array();
+                foreach ($matches[1] as $key => $val)
+                {
+                    $return[(string)$val] = $matches[2][$key];
+                } // foreach
+                if (!empty($return)) return $return;
+                break;
+                
+            // FIND LOGIN FORM TOKEN
+            case 'token_login':
+                preg_match('/<form [^>]*\/login[^>]*>.*?<\/form>/si', $data, $match);
+                if (!empty($match[0]))
+                {
+                    preg_match('/<input [^>]*name="t" [^>]*value="(.*?)"[^>]*>/si', $match[0], $match);
+                    if (!empty($match[1])) return $match[1];
+                } // !empty
+                break;
+                
+            // FIND UPLOAD FORM TOKEN
+            case 'token_upload':
+                preg_match('/<form [^>]*https\:\/\/dl-web\.dropbox\.com\/upload[^>]*>.*?<\/form>/si', $data, $match);
+                if (!empty($match[0]))
+                {
+                    preg_match('/<input [^>]*name="t" [^>]*value="(.*?)"[^>]*>/si', $match[0], $match);
+                    if (!empty($match[1])) return $match[1];
+                } // !empty
+                break;
+                
+        } // switch
+        return false;
+    } // findOnDropbox
+    
 } // DropboxComponent
