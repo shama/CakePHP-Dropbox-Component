@@ -32,7 +32,7 @@
  * @link http://www.kyletyoung.com/code/cakephp_dropbox_component
  *
  */
-class DropboxWebserverController extends AppController
+class DropboxWebserverController extends DropboxAppController
 {
     var $name = 'DropboxWebserver';
     var $uses = array();
