@@ -10,8 +10,9 @@ This component will...
 * Compares files of a local folder and a dropbox folder then uploads/downloads the diffence using the sync function.
 
 = INSTALL =======
-* Upload/Copy dropbox.php to your CakePHP app/controllers/components/ folder.
-* Add the component to your CakePHP controller.
+* Create the app/plugins/dropbox/ folder
+* Upload/Copy this plugin to the app/plugins/dropbox folder
+* Add the component to your CakePHP controller like so var $components = array('Dropbox.Dropbox');
 
 = USAGE =========
 * array files ( str $dropbox_folder )
