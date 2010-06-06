@@ -1,5 +1,7 @@
 CakePHP Dropbox Component v0.4
 
+ATTENTION: Dropbox now has an official API and this should really be a datasource, not a component. I will release a datasource utilizing their official API soon.
+
 = ABOUT =========
 A CakePHP component that connects to the most excellent file syncing tool known as Dropbox (http://www.dropbox.com).
 This component will...
